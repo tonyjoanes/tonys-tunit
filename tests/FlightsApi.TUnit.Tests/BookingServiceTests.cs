@@ -1,13 +1,16 @@
+// Demonstrates ordinary unit tests with TUnit's async assertions
+// (await Assert.That(...)), a fake clock and a fixed booking-reference
+// generator.
+// Problem: none unique to TUnit. This is the baseline "same test,
+// different syntax" comparison.
+// xUnit equivalent: BookingServiceTests.cs, using Assert.Equal and friends.
+
 using TonysTunit.Flights.Models;
 using TonysTunit.Flights.Services;
 using TonysTunit.Flights.TUnitTests.Support;
 
 namespace TonysTunit.Flights.TUnitTests;
 
-/// <summary>
-/// Unit tests for <see cref="BookingService"/>, using a fake clock and a
-/// fixed booking-reference generator so assertions stay deterministic.
-/// </summary>
 public sealed class BookingServiceTests
 {
     [Test]

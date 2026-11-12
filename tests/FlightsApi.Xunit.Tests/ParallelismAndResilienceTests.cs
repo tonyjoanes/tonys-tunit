@@ -1,10 +1,10 @@
+// Matches TUnit's ParallelismAndResilienceTests.cs. Tests in the same
+// xUnit class run sequentially by default, so a shared counter is safe
+// here without [NotInParallel]. A timeout is set on the fact itself.
+// There is no first-party [Retry].
+
 namespace TonysTunit.Flights.XunitTests;
 
-/// <summary>
-/// Tests in the same xUnit class run sequentially by default, so a shared
-/// counter is safe here without an extra attribute. There is no first-party
-/// <c>[Retry]</c>; a timeout is set on the fact itself.
-/// </summary>
 public sealed class ParallelismAndResilienceTests
 {
     private static int _seatHold;

@@ -1,10 +1,15 @@
+// Demonstrates [NotInParallel], [Retry] and [Timeout]. The shared counter
+// is only safe because both writer tests share a constraint key and
+// therefore never overlap.
+// Problem: tests that share a resource must not run at the same time, and
+// a flaky end-to-end call in CI should retry (or time out) without a
+// home-grown helper.
+// xUnit equivalent: ParallelismAndResilienceTests.cs, which relies on
+// xUnit's default of sequential tests in a class, and [Fact(Timeout = ...)].
+// There is no first-party [Retry].
+
 namespace TonysTunit.Flights.TUnitTests;
 
-/// <summary>
-/// Demonstrates <c>[NotInParallel]</c>, <c>[Retry]</c> and <c>[Timeout]</c>.
-/// The shared counter is only safe because both tests share a constraint key
-/// and therefore never overlap.
-/// </summary>
 public sealed class ParallelismAndResilienceTests
 {
     private static int _seatHold;

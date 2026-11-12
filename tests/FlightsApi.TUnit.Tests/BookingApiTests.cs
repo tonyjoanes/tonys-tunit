@@ -1,3 +1,10 @@
+// Demonstrates a session-scoped WebApplicationFactory via
+// [ClassDataSource(Shared = SharedType.PerTestSession)].
+// Problem: spinning the API up once per class (or per test) makes
+// integration suites slow and full of fixture ceremony.
+// xUnit equivalent: BookingApiTests.cs, which shares one factory
+// through ICollectionFixture and a [Collection] definition.
+
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;

@@ -1,14 +1,13 @@
+// Matches TUnit's HooksTests.cs and SessionHooks.cs. The closest xUnit
+// equivalent of [Before(Class)] is IClassFixture, constructed once for
+// the class. There is no first-party session hook comparable to
+// [After(TestSession)]; v3 assembly fixtures still need a fixture class
+// rather than a single attributed method.
+
 using TonysTunit.Flights.Services;
 
 namespace TonysTunit.Flights.XunitTests;
 
-/// <summary>
-/// The closest xUnit equivalent of TUnit's <c>[Before(Class)]</c> is
-/// <see cref="IClassFixture{TFixture}"/>. The fixture is constructed once
-/// for the class. There is no first-party session-level hook comparable to
-/// <c>[After(TestSession)]</c>; v3's assembly fixtures still need a fixture
-/// class rather than a single attributed method.
-/// </summary>
 public sealed class AirportClassFixture
 {
     public AirportClassFixture()

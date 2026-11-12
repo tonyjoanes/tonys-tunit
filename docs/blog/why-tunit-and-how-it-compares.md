@@ -1,18 +1,28 @@
 # Why TUnit, and how it compares with xUnit
 
-I have been looking at [TUnit](https://tunit.dev/), a modern .NET testing framework by Tom Longhurst, because it has been picking up real use this year. This repo is a small flights Web API with two test projects that cover the same ground: one in TUnit 1.83.8, and one in xUnit.net v3 4.0.3. The aim is to show, in code you can run, where the two frameworks feel different and when a move might be worth it.
+## Short version
 
-Figures below were checked on 12 November 2026. TUnit had [8,312,911 NuGet downloads](https://www.nuget.org/packages/TUnit) and [3,990 GitHub stars](https://github.com/thomhurst/TUnit). Weekly downloads on [NuGet Trends](https://nugettrends.com/packages?ids=TUnit) were 232,793 in the week to 9 November, against 134,164 in the week to 11 May. The latest stable release, 1.83.8, was published on 11 November 2026. It is used in the test suites of [Refit](https://github.com/reactiveui/refit), [ReactiveUI](https://github.com/reactiveui/ReactiveUI), [Verify](https://github.com/VerifyTests/Verify) and [Shouldly](https://github.com/shouldly/shouldly). That is enough traction to take it seriously, but it is still a younger ecosystem than xUnit.
+If your integration tests are slow because each class spins up its own API, or they are full of fixture ceremony, TUnit makes that simpler: you start one test server for the whole run and point every test at it. The same idea is the strongest reason to look at it if you want Aspire or Playwright end-to-end tests against one running app. If your suite is mostly fast unit tests and xUnit already works for you, stay on xUnit.
 
-## Why TUnit is interesting
+This repo is a small flights Web API with two test projects covering the same ground: [TUnit](https://tunit.dev/) 1.83.8, and xUnit.net v3 4.0.3.
 
-TUnit discovers tests at compile time with a [source generator](https://tunit.dev/docs/getting-started/installation.md), rather than by reflecting over assemblies at runtime. The practical effects are faster startup, mistakes such as a bad hook signature failing the build instead of a CI run, and a path to Native AOT and trimmed, single-file test apps. It is built only on [Microsoft.Testing.Platform](https://learn.microsoft.com/en-us/dotnet/core/testing/microsoft-testing-platform-intro): it does not support VSTest, and you should not add `Microsoft.NET.Test.Sdk`. xUnit v3 can also run on MTP (the default from the 4.0 line, and what the xUnit project here uses), but TUnit was designed around the new platform from the start.
+Figures checked on 12 November 2026: [8,312,911 NuGet downloads](https://www.nuget.org/packages/TUnit), [3,990 GitHub stars](https://github.com/thomhurst/TUnit), weekly downloads on [NuGet Trends](https://nugettrends.com/packages?ids=TUnit) of 232,793 in the week to 9 November against 134,164 in the week to 11 May, and latest stable 1.83.8 on 11 November 2026. It is used by [Refit](https://github.com/reactiveui/refit), [ReactiveUI](https://github.com/reactiveui/ReactiveUI), [Verify](https://github.com/VerifyTests/Verify) and [Shouldly](https://github.com/shouldly/shouldly). That is enough traction to take seriously, and still a younger ecosystem than xUnit.
 
-Tests [run in parallel by default](https://tunit.dev/docs/execution/parallelism.md), capped at twice the processor count. `[NotInParallel]`, `[ParallelGroup]` and `[ParallelLimiter]` control actual concurrent tests, not just thread count. Assertions are [async and fluent](https://tunit.dev/docs/migration/xunit.md): `await Assert.That(actual).IsEqualTo(expected)` reads more clearly than `Assert.Equal(expected, actual)`, and is type-aware, so you do not get a string assertion offered on an `int`.
+## Why those differences matter
 
-Lifecycle hooks exist at every level (test, class, assembly, test session and discovery) as `[Before]`, `[After]`, `[BeforeEvery]` and `[AfterEvery]`. Shared fixtures use `[ClassDataSource<T>]`, with `Shared` set to `PerClass`, `PerAssembly`, `PerTestSession` or a key. That is how this repo starts one `WebApplicationFactory` for the whole run, via [TUnit.AspNetCore](https://tunit.dev/docs/examples/aspnet.md)'s `TestWebApplicationFactory`. There are also first-party packages for [Aspire](https://tunit.dev/docs/examples/aspire.md) (`TUnit.Aspire`, first published on 15 February 2026, [150,481 downloads](https://www.nuget.org/packages/TUnit.Aspire) as of 12 November 2026) and [Playwright](https://tunit.dev/docs/examples/playwright.md). The Aspire fixture starts an AppHost once for the session, which is the sort of thing a platform team actually wants.
+**Starting a whole app once, then pointing every end-to-end test at it.** An Aspire AppHost, or a Playwright browser suite, is expensive to start once per test class. [TUnit.Aspire](https://tunit.dev/docs/examples/aspire.md) (first published on 15 February 2026, [150,481 downloads](https://www.nuget.org/packages/TUnit.Aspire) as of 12 November 2026) starts the AppHost once for the session, waits for resources, and tears it down at the end. [TUnit.Playwright](https://tunit.dev/docs/examples/playwright.md) does the same for a browser. This repo does not include an Aspire or Playwright example: there is no AppHost here and no browser under test. The flights API tests use the same sharing pattern, on a single in-process server.
 
-`[DependsOn]` lets one test wait for another without turning off parallelism for everything else. `[Retry]` and `[Timeout]` are first-party attributes, at method, class or assembly level.
+**An API spun up once per class.** In xUnit, an `IClassFixture` or collection fixture often means each class, or each collection, pays to start `WebApplicationFactory`. In TUnit you mark the class with `[ClassDataSource<FlightsWebFactory>(Shared = SharedType.PerTestSession)]` and one server lasts the whole run. That is what `BookingApiTests` does, via [TUnit.AspNetCore](https://tunit.dev/docs/examples/aspnet.md)'s `TestWebApplicationFactory`.
+
+**A flaky end-to-end test in CI.** A network blip should not fail the build, and a hung call should not sit there. TUnit has first-party `[Retry]` and `[Timeout]`, at method, class or assembly level, which `ParallelismAndResilienceTests` shows. xUnit has a timeout on `[Fact]`, but no first-party retry.
+
+**An expensive multi-step flow.** Sometimes you want "book, then cancel" as two tests, with the second waiting for the first, without making the rest of the suite run in a line. `[DependsOn]` does that, and the second test can read the first test's state bag, as `BookingWorkflowTests` shows. Isolated tests are still the better default, as TUnit's own docs say. xUnit has no equivalent, so that project folds both steps into one test.
+
+**Set-up and tear-down that should span the whole run.** xUnit's hooks stop at the class, or need a fixture class at assembly scope. TUnit has `[Before]` and `[After]` at test, class, assembly, session and discovery: `HooksTests` uses `[Before(Class)]`, and `SessionHooks` uses `[After(TestSession)]` once at the end of the run.
+
+**A broken hook that only fails in CI.** TUnit [discovers tests at compile time](https://tunit.dev/docs/getting-started/installation.md) with a source generator. A bad hook signature or a broken data source fails the build, not a later test run, and that is also how it reaches Native AOT and trimmed, single-file test apps. It is built only on [Microsoft.Testing.Platform](https://learn.microsoft.com/en-us/dotnet/core/testing/microsoft-testing-platform-intro): it does not support VSTest, and you should not add `Microsoft.NET.Test.Sdk`. xUnit v3 can also run on MTP (the default from the 4.0 line, and what the xUnit project here uses), but TUnit was designed around that platform from the start.
+
+Tests also [run in parallel by default](https://tunit.dev/docs/execution/parallelism.md), with `[NotInParallel]` when needed, and [assertions](https://tunit.dev/docs/migration/xunit.md) are async and fluent.
 
 ## Side by side
 
@@ -38,7 +48,7 @@ public async Task Airport_Codes_Are_Normalised(string input, string expected)
 }
 ```
 
-`[MemberData]` becomes `[MethodDataSource]`, and the data method can return tuples instead of `object[]`. TUnit also has `[Matrix]`, which builds every combination of per-parameter values. xUnit has no built-in equivalent, so the xUnit project in this repo lists the same six airport-pair cases as `[InlineData]` rows.
+`[MemberData]` becomes `[MethodDataSource]`, returning tuples instead of `object[]`. TUnit also has `[Matrix]`, which builds every combination of per-parameter values. xUnit has no built-in equivalent, so this repo lists the same six airport-pair cases as `[InlineData]` rows.
 
 Sharing a `WebApplicationFactory` for the session looks like this:
 
@@ -55,9 +65,7 @@ public sealed class FlightsApiCollection : ICollectionFixture<FlightsWebFactory>
 public sealed class BookingApiTests(FlightsWebFactory factory) { /* tests */ }
 ```
 
-For a two-step booking workflow, TUnit can keep the steps as separate tests and still order them, with `[DependsOn(nameof(Step1_Schedule_And_Book))]` on the second test. xUnit has no equivalent, so the xUnit project puts both steps in a single test. Isolated tests are the better default anyway, as TUnit's own docs say; `[DependsOn]` matters when a step is expensive and you really do want it shared.
-
-A short attribute map, taken from TUnit's [migration guide](https://tunit.dev/docs/migration/xunit.md):
+From TUnit's [migration guide](https://tunit.dev/docs/migration/xunit.md):
 
 | xUnit | TUnit |
 | --- | --- |
@@ -72,37 +80,37 @@ A short attribute map, taken from TUnit's [migration guide](https://tunit.dev/do
 
 ## How the four frameworks compare
 
-A sketch, not a full matrix. NUnit and MSTest notes come from TUnit's [framework differences](https://tunit.dev/docs/comparison/framework-differences.md) page and Microsoft's [testing platform overview](https://learn.microsoft.com/en-us/dotnet/core/testing/microsoft-testing-platform-intro).
+NUnit and MSTest notes come from TUnit's [framework differences](https://tunit.dev/docs/comparison/framework-differences.md) page and Microsoft's [testing platform overview](https://learn.microsoft.com/en-us/dotnet/core/testing/microsoft-testing-platform-intro).
 
 | | TUnit | xUnit v3 | NUnit | MSTest |
 | --- | --- | --- | --- | --- |
 | Test method | `[Test]` | `[Fact]` / `[Theory]` | `[Test]` | `[TestMethod]` |
 | Discovery | Source generators | Reflection, with AOT work in v3 | Reflection | Reflection |
-| Default runner | Microsoft.Testing.Platform only | MTP (default in 4.x) and VSTest | VSTest, plus an MTP runner | VSTest, plus an MTP runner |
-| Parallel by default | Yes, every test | Collections in parallel; tests in a collection are sequential | Opt-in | Opt-in |
-| Native AOT | First-class, through source generation | TUnit's November 2026 benchmarks include an xUnit v3 AOT column, so support exists | Not a first-class story | Not a first-class story |
+| Default runner | Microsoft.Testing.Platform only | MTP (default in 4.x) and VSTest | VSTest plus an MTP runner | VSTest plus an MTP runner |
+| Parallel by default | Yes, every test | Collections in parallel; tests in a collection sequential | Opt-in | Opt-in |
+| Native AOT | First-class, via source generation | AOT column in TUnit's Nov 2026 benchmarks | Not first-class | Not first-class |
 | Async assertions | Built in | Classic `Assert`, mostly synchronous | Constraint model | Classic `Assert` |
 | Shared fixtures | `ClassDataSource` and a `Shared` mode | `IClassFixture`, `ICollectionFixture` | `OneTimeSetUp`, or a fixture class | `ClassInitialize` |
 | Session hooks | `[Before(TestSession)]` / `[After(TestSession)]` | No direct equivalent | `SetUpFixture` is assembly-scoped | `AssemblyInitialize` |
-| Test dependencies | `[DependsOn]` | None | `[Order]`, which usually means less parallelism | None |
+| Test dependencies | `[DependsOn]` | None | `[Order]` | None |
 | Retry / timeout | `[Retry]`, `[Timeout]`, at any level | Timeout on `[Fact]`; no first-party retry | `[Retry]`, `[Timeout]` | Present in recent versions |
 | Matrix data | `[Matrix]` | Manual rows or a third-party package | `[Values]` / `[TestCase]` | `[DataRow]` |
 | Aspire / Playwright | `TUnit.Aspire`, `TUnit.Playwright` | Community or vendor packages | Playwright has an NUnit package | Playwright has an MSTest package |
 
-NUnit's default of one instance per class, with state leaking between tests, is a well known trap. TUnit, like xUnit, creates a new instance for every test. NUnit's constraint assertions inspired TUnit's fluent style, but TUnit pushes the type checking to the compiler. MSTest remains a solid choice if your team is already on it. Neither is the focus of this repo.
+NUnit's default of one instance per class, with state leaking between tests, is a well known trap. TUnit, like xUnit, creates a new instance for every test. NUnit's constraint assertions inspired TUnit's fluent style, but TUnit pushes the type checking to the compiler. MSTest is a solid choice if your team is already on it. Neither is the focus here.
 
 ## When you would stay on xUnit
 
-xUnit is the default in almost every .NET tutorial, template and sample. The ecosystem around it (analysers, IDE runners, coverage tools, company standards) is mature. If your team already writes fluent xUnit and your CI is quiet, a migration is a cost with no obvious payoff. TUnit's IDE experience has come on, and Microsoft.Testing.Platform is supported in recent Visual Studio, VS Code and Rider builds, but you should try your actual workflow before you commit. Some older VSTest-only tools will not work, and Coverlet is [incompatible with TUnit](https://tunit.dev/docs/getting-started/installation.md) (TUnit ships Microsoft's coverage extension instead). Familiarity matters as much as features: a framework your colleagues can read on a Friday afternoon is worth more than a slightly nicer assertion syntax. xUnit v3 has also closed some of the gap (MTP by default, a timeout on facts, even an AOT path), so you can take the new runner without changing framework.
+xUnit is the default in almost every .NET tutorial, template and sample, and its ecosystem (analysers, IDE runners, coverage tools, company standards) is mature. If your team already writes fluent xUnit and your CI is quiet, a migration has no obvious payoff. Try TUnit in your actual workflow before you commit: some older VSTest-only tools will not work, and Coverlet is [incompatible with TUnit](https://tunit.dev/docs/getting-started/installation.md) (TUnit ships Microsoft's coverage extension instead). Familiarity matters as much as features. xUnit v3 has also closed some of the gap (MTP by default, a timeout on facts, even an AOT path), so you can take the new runner without changing framework.
 
 ## If you do migrate
 
-TUnit ships [Roslyn analysers and a code fixer](https://tunit.dev/docs/migration/xunit.md) (`TUXU0001`) that rewrite most of a typical suite: `[Fact]` and `[Theory]` to `[Test]`, `[InlineData]` to `[Arguments]`, `[MemberData]` to `[MethodDataSource]`, and the common assertions to the fluent form. Add TUnit alongside xUnit, turn off TUnit's implicit usings so the two `Assert` types do not clash, run `dotnet format analyzers --severity info --diagnostics TUXU0001`, then finish by hand. The fixer will not convert fixtures, `IAsyncLifetime` or `ITestOutputHelper`, and data methods should return tuples rather than `object[]`. Then remove the xUnit packages and confirm with `dotnet run -- --list-tests`. Migrate a single project first, keep it green, and only then decide whether the rest follows.
+TUnit ships [Roslyn analysers and a code fixer](https://tunit.dev/docs/migration/xunit.md) (`TUXU0001`) that rewrite most of a typical suite: `[Fact]` and `[Theory]` to `[Test]`, `[InlineData]` to `[Arguments]`, `[MemberData]` to `[MethodDataSource]`, and the common assertions to the fluent form. Add TUnit alongside xUnit, turn off TUnit's implicit usings so the two `Assert` types do not clash, run `dotnet format analyzers --severity info --diagnostics TUXU0001`, then finish by hand. The fixer will not convert fixtures, `IAsyncLifetime` or `ITestOutputHelper`, and data methods should return tuples rather than `object[]`. Remove the xUnit packages, confirm with `dotnet run -- --list-tests`, and migrate a single project first.
 
 ## A note on speed
 
-TUnit [publishes weekly benchmarks](https://tunit.dev/docs/benchmarks) against xUnit v3, NUnit and MSTest, including Native AOT runs. Those are the numbers to look at if performance is your reason for switching. This repo is not that. On 12 November 2026, a Release `dotnet test` run on the machine that built it reported 2.083 seconds for 33 TUnit tests and 2.287 seconds for 32 xUnit tests, including starting an in-process test server. A suite this small proves almost nothing about speed.
+TUnit [publishes weekly benchmarks](https://tunit.dev/docs/benchmarks) against xUnit v3, NUnit and MSTest, including Native AOT runs. Those are the numbers to look at if performance is your reason for switching. This repo is not that. On 12 November 2026, a Release `dotnet test` run here reported 2.083 seconds for 33 TUnit tests and 2.287 seconds for 32 xUnit tests, including starting an in-process test server. A suite this small proves almost nothing about speed.
 
 ## Try it
 
-The code lives in [tonyjoanes/tonys-tunit](https://github.com/tonyjoanes/tonys-tunit). `dotnet test TonysTunit.slnx` runs both projects. If you already have an xUnit suite, the more useful experiment is to take one of your own projects through the migration guide and see how it feels in your IDE and CI.
+The code lives in [tonyjoanes/tonys-tunit](https://github.com/tonyjoanes/tonys-tunit). `dotnet test TonysTunit.slnx` runs both projects. If you already have an xUnit suite, try the migration guide on one of your own projects.

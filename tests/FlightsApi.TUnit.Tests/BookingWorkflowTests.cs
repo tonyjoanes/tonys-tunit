@@ -1,3 +1,11 @@
+// Demonstrates [DependsOn]: a cancel step waits for a book step, then
+// reads the booking id from the first test's state bag.
+// Problem: an expensive multi-step flow that you want as separate tests,
+// with a defined order, without turning off parallelism for everything else.
+// Isolated tests are still the better default; this shows the alternative.
+// xUnit equivalent: BookingWorkflowTests.cs, which folds both steps into
+// one test because xUnit has no [DependsOn].
+
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -6,12 +14,6 @@ using TonysTunit.Flights.TUnitTests.Support;
 
 namespace TonysTunit.Flights.TUnitTests;
 
-/// <summary>
-/// A short booking workflow that uses <c>[DependsOn]</c>. The second test
-/// waits for the first, then reads the booking id from the first test's
-/// state bag. Isolated tests are still the better default; this shows the
-/// feature for the comparison post.
-/// </summary>
 [ClassDataSource<FlightsWebFactory>(Shared = SharedType.PerTestSession)]
 public sealed class BookingWorkflowTests(FlightsWebFactory factory)
 {

@@ -1,3 +1,7 @@
+// Matches TUnit's BookingWorkflowTests.cs. xUnit has no [DependsOn], so
+// the book-then-cancel workflow is a single test. That keeps the steps
+// ordered without turning off parallelism for the rest of the class.
+
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -6,11 +10,6 @@ using TonysTunit.Flights.XunitTests.Support;
 
 namespace TonysTunit.Flights.XunitTests;
 
-/// <summary>
-/// xUnit has no <c>[DependsOn]</c>. A multi-step workflow is written as a
-/// single test so the steps stay ordered without turning off parallelism
-/// for the rest of the class.
-/// </summary>
 [Collection(nameof(FlightsApiCollection))]
 public sealed class BookingWorkflowTests(FlightsWebFactory factory)
 {

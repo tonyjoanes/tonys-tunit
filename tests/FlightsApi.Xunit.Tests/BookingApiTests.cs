@@ -1,3 +1,7 @@
+// Matches TUnit's BookingApiTests.cs. Shares one WebApplicationFactory
+// through ICollectionFixture and [Collection], which is the closest
+// xUnit equivalent of ClassDataSource with Shared = PerTestSession.
+
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;

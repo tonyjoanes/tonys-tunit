@@ -1,3 +1,6 @@
+// Matches TUnit's BookingServiceTests.cs. The same unit tests, written
+// with xUnit's Assert.Equal and friends rather than await Assert.That.
+
 using TonysTunit.Flights.Models;
 using TonysTunit.Flights.XunitTests.Support;
 

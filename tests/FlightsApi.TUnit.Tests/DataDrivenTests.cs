@@ -1,3 +1,9 @@
+// Demonstrates [Arguments], [MethodDataSource] and [Matrix].
+// Problem: covering combinations of inputs without copying test methods,
+// and without listing every pair by hand.
+// xUnit equivalent: DataDrivenTests.cs, which uses [InlineData] and
+// [MemberData], and spells the six matrix cases out as [InlineData] rows.
+
 using TonysTunit.Flights.Services;
 
 namespace TonysTunit.Flights.TUnitTests;

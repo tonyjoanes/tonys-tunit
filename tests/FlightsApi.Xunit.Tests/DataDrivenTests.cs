@@ -1,3 +1,7 @@
+// Matches TUnit's DataDrivenTests.cs. [InlineData] and [MemberData] stand
+// in for [Arguments] and [MethodDataSource]. xUnit has no built-in
+// [Matrix], so the six airport-pair cases are listed as [InlineData] rows.
+
 using TonysTunit.Flights.Services;
 
 namespace TonysTunit.Flights.XunitTests;

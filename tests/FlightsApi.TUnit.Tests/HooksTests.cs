@@ -1,3 +1,9 @@
+// Demonstrates [Before(Class)], which runs once before the first test
+// in the class.
+// Problem: shared set-up that should happen once, written as a method
+// rather than a fixture class.
+// xUnit equivalent: HooksTests.cs, which uses IClassFixture<AirportClassFixture>.
+
 using TonysTunit.Flights.Services;
 
 namespace TonysTunit.Flights.TUnitTests;
